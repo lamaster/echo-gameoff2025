@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>((( E C H O ))) - Sound maze runner (instanced geo + tile wave afterglow)</title>
+  </head>
+  <body>
+    <div id="intro-menu">
+      <div class="menu-card">
+        <div class="menu-title" aria-label="((( E C H O )))">
+          <span class="menu-bracket menu-bracket-1">(</span>
+          <span class="menu-bracket menu-bracket-2">(</span>
+          <span class="menu-bracket menu-bracket-3">(</span>
+          <span class="menu-word"> E C H O </span>
+          <span class="menu-bracket menu-bracket-4">)</span>
+          <span class="menu-bracket menu-bracket-5">)</span>
+          <span class="menu-bracket menu-bracket-6">)</span>
+        </div>
+        <button id="start-btn" type="button" autofocus>Start Game</button>
+        <p class="menu-subtitle">Sound-first navigation. Follow the echo.</p>
+        <div class="menu-controls" aria-label="Control layout">
+          <div class="control-block">
+            <div class="keys-stack">
+              <div class="key key-solo">W</div>
+              <div class="key-row">
+                <div class="key">A</div>
+                <div class="key">S</div>
+                <div class="key">D</div>
+              </div>
+            </div>
+            <div class="control-label">move</div>
+          </div>
+          <div class="control-block">
+            <div class="mouse-icon" aria-hidden="true">
+              <div class="mouse-body">
+                <div class="mouse-wheel"></div>
+              </div>
+            </div>
+            <div class="control-label">look</div>
+          </div>
+          <div class="control-block">
+            <div class="key key-wide">SHIFT</div>
+            <div class="control-label">sprint</div>
+          </div>
+        <div class="control-block">
+          <div class="key key-wide">SPACE</div>
+          <div class="control-label">jump</div>
+        </div>
+        <div class="control-block">
+          <div class="key key-solo">X</div>
+          <div class="control-label">ping</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="bonus-timer" class="hidden-ui" aria-live="polite">00:00:00</div>
+  <div id="key-hint" role="status" aria-live="polite">Find the key</div>
+  <div id="lock-hint" role="status" aria-live="polite">Mouse control lost. Click to regain control.</div>
+  <div id="finish-screen">
+    <div class="finish-content">
+      <p id="finish-title">Level Complete</p>
+      <table class="finish-stats">
+        <tbody id="finish-stats"></tbody>
+      </table>
+      <div class="finish-actions">
+        <button id="finish-continue" type="button">Continue</button>
+        <button id="finish-restart" type="button">Restart Run</button>
+      </div>
+    </div>
+  </div>
+  <canvas id="gl" tabindex="0"></canvas>
+  <canvas id="perf" class="hidden-ui" width="240" height="210"></canvas>
+  <div id="map-panel" class="hidden-ui">
+    <canvas id="map" width="180" height="180"></canvas>
+  </div>
+  <div id="panel" class="hidden-ui"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
