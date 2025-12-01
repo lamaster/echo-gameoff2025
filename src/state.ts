@@ -201,7 +201,7 @@ export function createState(): GameState {
       pingClick: 0.6,
       wavePing: 1.5,
       waveJump: 1.0,
-      waveFootstep: 0.35,
+      waveFootstep: 0.450,
     },
     perf: {
       samples: new Array(64).fill(0),
