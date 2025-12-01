@@ -24,7 +24,6 @@ const int MAX_PINGS = 8;
 uniform vec3 uPingPositions[MAX_PINGS];
 uniform float uPingTimes[MAX_PINGS];
 uniform float uPingStrengths[MAX_PINGS];
-uniform vec4 uMazeBounds; // minX, maxX, minZ, maxZ
 uniform float uAfterglowMix;
 uniform sampler2D uWaveTexture;
 uniform vec2 uWaveTextureSize;
@@ -54,48 +53,14 @@ float ringAt(vec3 p) {
     float d0 = abs(length(p - uPingPositions[i]) - R);
     float inner = smoothstep(0.06, 0.0, d0);
     float halo = smoothstep(0.12, 0.06, d0);
-    float strength = uPingStrengths[i];
-    float r = max(inner, 0.5 * halo) * strength;
-    if (uReflect == 1) {
-      vec3 s = uPingPositions[i];
-      vec3 sxp = vec3(2.0 * uMazeBounds.y - s.x, s.y, s.z);
-      vec3 sxn = vec3(2.0 * uMazeBounds.x - s.x, s.y, s.z);
-      vec3 szp = vec3(s.x, s.y, 2.0 * uMazeBounds.w - s.z);
-      vec3 szn = vec3(s.x, s.y, 2.0 * uMazeBounds.z - s.z);
-      float g = 0.7 * strength;
-      r = max(
-        r,
-        g *
-          max(
-            smoothstep(0.06, 0.0, abs(length(p - sxp) - R)),
-            0.5 * smoothstep(0.12, 0.06, abs(length(p - sxp) - R))
-          )
-      );
-      r = max(
-        r,
-        g *
-          max(
-            smoothstep(0.06, 0.0, abs(length(p - sxn) - R)),
-            0.5 * smoothstep(0.12, 0.06, abs(length(p - sxn) - R))
-          )
-      );
-      r = max(
-        r,
-        g *
-          max(
-            smoothstep(0.06, 0.0, abs(length(p - szp) - R)),
-            0.5 * smoothstep(0.12, 0.06, abs(length(p - szp) - R))
-          )
-      );
-      r = max(
-        r,
-        g *
-          max(
-            smoothstep(0.06, 0.0, abs(length(p - szn) - R)),
-            0.5 * smoothstep(0.12, 0.06, abs(length(p - szn) - R))
-          )
-      );
-    }
+    float strength = abs(uPingStrengths[i]);
+    float reflectMask =
+      uPingStrengths[i] < 0.0
+        ? uReflect == 1
+          ? 1.0
+          : 0.0
+        : 1.0;
+    float r = max(inner, 0.5 * halo) * strength * reflectMask;
     r *= exp(-uRingFalloff * R);
     acc += r;
   }
@@ -112,7 +77,14 @@ float echoBrightness(vec3 p) {
     float passT = t0 + length(p - uPingPositions[i]) / c;
     float dt = uTimeSeconds - passT;
     float e = exp(-max(0.0, dt) / tau);
-    b += step(0.0, dt) * e * uPingStrengths[i];
+    float strength = abs(uPingStrengths[i]);
+    float reflectMask =
+      uPingStrengths[i] < 0.0
+        ? uReflect == 1
+          ? 1.0
+          : 0.0
+        : 1.0;
+    b += step(0.0, dt) * e * strength * reflectMask;
   }
   return clamp(b, 0.0, 1.0);
 }

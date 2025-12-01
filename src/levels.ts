@@ -278,9 +278,7 @@ function buildLevel(spec: LevelSpec): LevelData {
   const keyCell = keyCells[0];
   const key = keyCell ? { cell: keyCell, position: cellToWorld(maze, keyCell) } : undefined;
   const beaconPath =
-    startCell && exitCell
-      ? shortestPathBetween(maze.rowsGrid, startCell, exitCell)
-      : shortestPath(maze.rowsGrid);
+    startCell && exitCell ? shortestPathBetween(maze.rowsGrid, startCell, exitCell) : shortestPath(maze.rowsGrid);
   const beaconCount = spec.beaconHints?.length ?? beaconCells.length;
   if (beaconCount > 0 && beaconPath.length > 0) {
     beaconCells = [];

@@ -1,4 +1,5 @@
 import { Material, MazeBounds, occlusionAtten } from '../materials';
+import { gatherReflectionImages, type ReflectionImage } from '../reflections';
 import type { GameState } from '../state';
 import { VISUAL_WAVE_C } from '../state';
 import type { Vec3 } from '../types';
@@ -22,6 +23,13 @@ export function createAudio(state: GameState): {
   setMasterGain: (v: number) => void;
 } {
   let ctx: AudioMaster | null = null;
+  const reflectionScratch: ReflectionImage[] = Array.from({ length: 4 }, () => ({
+    x: 0,
+    y: 0,
+    z: 0,
+    reflect: Material.OUTER.reflect,
+    distance: 0,
+  }));
 
   function ensureAC(): AudioContext | null {
     const AC =
@@ -132,15 +140,18 @@ export function createAudio(state: GameState): {
   function computeEchoTaps(listener: Vec3, yaw: number, src: Vec3) {
     const unitMeters = state.ui.unitMeters;
     const c = 343.0;
-    const imgs = [
-      { x: 2 * MazeBounds.maxX - src.x, y: src.y, z: src.z },
-      { x: 2 * MazeBounds.minX - src.x, y: src.y, z: src.z },
-      { x: src.x, y: src.y, z: 2 * MazeBounds.maxZ - src.z },
-      { x: src.x, y: src.y, z: 2 * MazeBounds.minZ - src.z },
-    ];
+    const imgCount = gatherReflectionImages(
+      src,
+      MazeBounds,
+      Material.OUTER.reflect,
+      reflectionScratch,
+      reflectionScratch.length,
+    );
     const rX = Math.cos(yaw);
     const rZ = Math.sin(yaw);
-    return imgs.map((im) => {
+    const taps: Array<{ delay: number; pan: number; gain: number; lpHz: number; occHits: number }> = [];
+    for (let i = 0; i < imgCount; i++) {
+      const im = reflectionScratch[i];
       const dx = im.x - listener.x;
       const dz = im.z - listener.z;
       const du = Math.hypot(dx, dz) || 1e-6;
@@ -151,12 +162,12 @@ export function createAudio(state: GameState): {
       const dirZ = dz / du;
       const pan = Math.max(-1, Math.min(1, dirX * rX + dirZ * rZ));
       const occ = occlusionAtten(listener, im);
-      const reflect = Material.OUTER.reflect;
       const baseGain = 0.35 * state.ui.echoGainMul * Math.exp(-distM * state.ui.echoDistK);
-      const gain = baseGain * reflect * occ.gainMul;
+      const gain = baseGain * im.reflect * occ.gainMul;
       const lpHz = (8000 * Math.exp(-distM * state.ui.echoLPK) + state.ui.echoLPBase) * occ.lpMul;
-      return { delay: state.ui.avSync ? delayAV : delayPhys, pan, gain, lpHz, occHits: occ.hits };
-    });
+      taps.push({ delay: state.ui.avSync ? delayAV : delayPhys, pan, gain, lpHz, occHits: occ.hits });
+    }
+    return taps;
   }
 
   function playEchoForPing(src: Vec3): void {

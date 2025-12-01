@@ -1,5 +1,6 @@
 import { linkProgram } from '../glHelpers';
 import { Material, MazeBounds, MazeExitDoor, MazeMeta, Walls } from '../materials';
+import { gatherReflectionImages, type ReflectionImage } from '../reflections';
 import { FAR, NEAR } from '../renderConfig';
 import { FS_GEO, VS_GEO } from '../shaders';
 import type { GameState } from '../state';
@@ -48,7 +49,6 @@ type SceneUniforms = {
   pingPositions: WebGLUniformLocation;
   pingTimes: WebGLUniformLocation;
   pingStrengths: WebGLUniformLocation;
-  mazeBounds: WebGLUniformLocation;
   afterglowMix: WebGLUniformLocation;
   waveTexture: WebGLUniformLocation;
   waveTextureSize: WebGLUniformLocation;
@@ -57,6 +57,7 @@ type SceneUniforms = {
 };
 
 const INSTANCE_FLOATS = 10;
+const MAX_SHADER_PINGS = 8;
 
 function makeUniforms(gl: WebGL2RenderingContext, program: WebGLProgram): SceneUniforms {
   const get = (name: string): WebGLUniformLocation => {
@@ -83,7 +84,6 @@ function makeUniforms(gl: WebGL2RenderingContext, program: WebGLProgram): SceneU
     pingPositions: get('uPingPositions[0]'),
     pingTimes: get('uPingTimes[0]'),
     pingStrengths: get('uPingStrengths[0]'),
-    mazeBounds: get('uMazeBounds'),
     afterglowMix: get('uAfterglowMix'),
     waveTexture: get('uWaveTexture'),
     waveTextureSize: get('uWaveTextureSize'),
@@ -262,6 +262,16 @@ export function createSceneRenderer(
   const cullScratch = createCullingScratch(instances.length, grid);
   const instanceData = new Float32Array(instances.length * INSTANCE_FLOATS);
   const instanceScratch = new Float32Array(instanceData.length);
+  const pingPosScratch = new Float32Array(MAX_SHADER_PINGS * 3);
+  const pingTimeScratch = new Float32Array(MAX_SHADER_PINGS);
+  const pingStrengthScratch = new Float32Array(MAX_SHADER_PINGS);
+  const reflectionScratch: ReflectionImage[] = Array.from({ length: 4 }, () => ({
+    x: 0,
+    y: 0,
+    z: 0,
+    reflect: Material.OUTER.reflect,
+    distance: 0,
+  }));
   instances.forEach((inst, idx) => {
     const o = idx * INSTANCE_FLOATS;
     instanceData[o + 0] = inst.center.x;
@@ -321,7 +331,49 @@ export function createSceneRenderer(
   gl.disable(gl.BLEND);
   gl.clearColor(0, 0, 0, 1);
 
+  const buildPingUniforms = (): number => {
+    let count = 0;
+    const useReflections = state.flags.reflect;
+    const outerReflect = Material.OUTER.reflect;
+    const maxBase = Math.min(state.pingCount, MAX_SHADER_PINGS);
+    for (let i = 0; i < maxBase && count < MAX_SHADER_PINGS; i++) {
+      const baseIdx = i * 3;
+      const px = state.pingPositions[baseIdx + 0];
+      const py = state.pingPositions[baseIdx + 1];
+      const pz = state.pingPositions[baseIdx + 2];
+      const strength = state.pingStrengths[i];
+      const time = state.pingTimes[i];
+      const dst = count * 3;
+      pingPosScratch[dst + 0] = px;
+      pingPosScratch[dst + 1] = py;
+      pingPosScratch[dst + 2] = pz;
+      pingTimeScratch[count] = time;
+      pingStrengthScratch[count] = strength;
+      count++;
+      if (!useReflections || count >= MAX_SHADER_PINGS) continue;
+      const reflections = gatherReflectionImages(
+        { x: px, y: py, z: pz },
+        MazeBounds,
+        outerReflect,
+        reflectionScratch,
+        Math.min(MAX_SHADER_PINGS - count, reflectionScratch.length),
+      );
+      for (let r = 0; r < reflections && count < MAX_SHADER_PINGS; r++) {
+        const img = reflectionScratch[r];
+        const dstR = count * 3;
+        pingPosScratch[dstR + 0] = img.x;
+        pingPosScratch[dstR + 1] = img.y;
+        pingPosScratch[dstR + 2] = img.z;
+        pingTimeScratch[count] = time;
+        pingStrengthScratch[count] = -Math.abs(strength) * img.reflect;
+        count++;
+      }
+    }
+    return count;
+  };
+
   const applyUniforms = (ctx: RenderContext): void => {
+    const pingCount = buildPingUniforms();
     gl.uniform1f(u.timeSeconds, ctx.timeSeconds);
     gl.uniform3f(
       u.cameraPosition,
@@ -341,11 +393,10 @@ export function createSceneRenderer(
     gl.uniform1i(u.reflectionsToggle, state.flags.reflect ? 1 : 0);
     gl.uniform1f(u.ringFalloff, state.ui.ringFalloff);
     gl.uniform1f(u.doorGlow, state.doorGlow);
-    gl.uniform4f(u.mazeBounds, MazeBounds.minX, MazeBounds.maxX, MazeBounds.minZ, MazeBounds.maxZ);
-    gl.uniform1i(u.pingCount, state.pingCount);
-    gl.uniform3fv(u.pingPositions, state.pingPositions);
-    gl.uniform1fv(u.pingTimes, state.pingTimes);
-    gl.uniform1fv(u.pingStrengths, state.pingStrengths);
+    gl.uniform1i(u.pingCount, pingCount);
+    gl.uniform3fv(u.pingPositions, pingPosScratch);
+    gl.uniform1fv(u.pingTimes, pingTimeScratch);
+    gl.uniform1fv(u.pingStrengths, pingStrengthScratch);
     gl.uniform1f(u.afterglowMix, ctx.afterglowMix);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, ctx.waveTexture);

@@ -1,4 +1,5 @@
 import { buildMaze, type MazeData } from './maze';
+import { rebuildReflectionPlanes } from './reflections';
 import type { Vec2 } from './types';
 
 export type MaterialDef = { id: number; name: string; reflect: number; absorbHF: number };
@@ -117,6 +118,7 @@ export function setMazeData(maze: MazeData, opts: { seed?: number; label?: strin
   MazeBounds = maze.bounds;
   MazeRows = maze.rowsGrid;
   MazeExitDoor = computeExitDoor();
+  rebuildReflectionPlanes(Walls);
 }
 
 export function segIntersectsAABB(a: Vec2, b: Vec2, w: Wall): boolean {
